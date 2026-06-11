@@ -33,6 +33,3 @@
     "typescript": "^5.7.2"
   }
 }
-npm install
-npm run setup
-npm run dev
