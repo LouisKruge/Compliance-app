@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String     @id @default(cuid())
+  name        String
+  regNo       String?
+  cidbGrade   Int        @default(1)
+  cidbClass   String     @default("GB") // GB = General Building, CE = Civil Engineering, etc.
+  csdNumber   String?
+  province    String     @default("Gauteng")
+  plan        String     @default("TRIAL") // TRIAL | COMPLIANT | TENDER_READY | PRO
+  profile     String?    // free-text company profile used for AI tender narratives
+  createdAt   DateTime   @default(now())
+  users       User[]
+  documents   Document[]
+  employees   Employee[]
+  projects    Project[]
+  tenders     Tender[]
+  jobs        Job[]
+  events      AuditEvent[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("OWNER") // OWNER | ADMIN | STAFF
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  events       AuditEvent[]
+}
+
+model Document {
+  id         String    @id @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type       String    // tax_pin | coida_letter | cidb_cert | bbbee_affidavit | cipc_cert | insurance | csd_report | nhbrc | letter_of_authority | other
+  title      String
+  fileName   String?
+  filePath   String?
+  issueDate  DateTime?
+  expiryDate DateTime?
+  verified   Boolean   @default(false)
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Employee {
+  id        String           @id @default(cuid())
+  companyId String
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  jobTitle  String?
+  idNumber  String?          // store last 4 digits only in UI; full value treated as sensitive
+  records   EmployeeRecord[]
+  createdAt DateTime         @default(now())
+}
+
+model EmployeeRecord {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       String    // medical | induction | competency
+  title      String
+  issueDate  DateTime?
+  expiryDate DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Project {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  client         String
+  siteAddress    String?
+  scope          String
+  trades         String?  // comma-separated trades on site
+  riskClass      String   @default("MEDIUM") // LOW | MEDIUM | HIGH
+  startDate      DateTime?
+  durationWeeks  Int?
+  staffCount     Int?
+  status         String   @default("ACTIVE") // ACTIVE | COMPLETE
+  safetyFile     String?  // generated safety file content (markdown)
+  safetyFileAt   DateTime?
+  safetyFileBy   String?  // "ai" | "fallback"
+  createdAt      DateTime @default(now())
+}
+
+model Tender {
+  id           String    @id @default(cuid())
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tenderNo     String
+  title        String
+  closingDate  DateTime?
+  rawText      String?   // pasted tender document text
+  analysis     String?   // JSON: { returnables: [...], cidbGrade, criteria, dates, missing: [...] }
+  readinessPct Int?
+  outcome      String    @default("OPEN") // OPEN | SUBMITTED | WON | LOST
+  createdAt    DateTime  @default(now())
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type      String    // safety_file | renewal | tender_pack | onboarding
+  title     String
+  status    String    @default("OPEN") // OPEN | IN_PROGRESS | DONE
+  dueDate   DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+}
